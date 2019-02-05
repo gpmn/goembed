@@ -9,7 +9,6 @@ goembed作为进程的一部分启动，接管进程的stdio.
 先go run test/main.go，然后再另一个console中telnet 127.0.0.1 6666   
 
 
-  `
   ubuntu@localhost:~$ telnet 127.0.0.1 6666  
   Trying 127.0.0.1...  
   Connected to 127.0.0.1.  
@@ -20,4 +19,3 @@ goembed作为进程的一部分启动，接管进程的stdio.
   good!  
   \>\>\> os.Exit(1)  
   Connection closed by foreign host.  
-`
