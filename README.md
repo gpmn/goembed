@@ -7,6 +7,8 @@ goembed作为进程的一部分启动，接管进程的stdio.
 之前还有一个goinside，还能针对C代码进行调试，现在已经废止了。
 
 先go run test/main.go，然后再另一个console中telnet 127.0.0.1 6666   
+
+
   `
   ubuntu@localhost:~$ telnet 127.0.0.1 6666  
   Trying 127.0.0.1...  
