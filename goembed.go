@@ -1,6 +1,8 @@
 package goembed
 
 import (
+	"errors"
+	"fmt"
 	"log"
 	"net"
 	"os"
@@ -21,6 +23,7 @@ import (
 
 var (
 	historyFile = os.Getenv("HOME") + "/.qlang.history"
+	notFound    = interface{}(errors.New("not found"))
 )
 
 // GoEmbed :
@@ -176,9 +179,9 @@ func qShell() {
 	// interpreter
 	log.Println("qshell in serving now")
 
-	var ret interface{}
+	var evalRes interface{}
 	qlang.SetOnPop(func(v interface{}) {
-		ret = v
+		evalRes = v
 	})
 
 	var tokener tokener
@@ -196,17 +199,21 @@ func qShell() {
 			if err == terminal.ErrPromptAborted {
 				continue
 			}
-			log.Printf("GoEmbed.Serve - term.Scan faield %v", err)
+			fmt.Printf("GoEmbed.Serve - term.Scan faield %v\n", err)
 			continue
 		}
 		expr = strings.TrimSpace(expr)
 		if expr == "" {
 			continue
 		}
+		evalRes = notFound
 		err = lang.SafeEval(expr)
 		if err != nil {
-			log.Printf("GoEmbed.Serve - lang.SafeEval failed, expr %s, err : %v ", expr, err)
+			fmt.Printf("GoEmbed.Serve - lang.SafeEval failed, expr %s, err : %v\n", expr, err)
 			continue
+		}
+		if evalRes != notFound {
+			fmt.Println(evalRes)
 		}
 	}
 }
