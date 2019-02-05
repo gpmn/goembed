@@ -14,7 +14,7 @@ import (
 	"qlang.io/cl/qlang"
 	"qlang.io/lib/terminal"
 
-	"github.com/kr/pty"
+	ptymod "github.com/kr/pty"
 	qipt "qlang.io/cl/interpreter"
 	qall "qlang.io/lib/qlang.all"
 
@@ -30,9 +30,11 @@ var (
 type GoEmbed struct {
 	lastConn net.Conn
 	lock     sync.Mutex
-	Pty      *os.File
-	Tty      *os.File
+	pty      *os.File
+	tty      *os.File
 	logFile  *os.File
+	mod      string
+	exports  map[string]interface{}
 }
 
 func (ge *GoEmbed) startTransfer() {
@@ -63,9 +65,9 @@ func (ge *GoEmbed) startTransfer() {
 				ge.logFile.Write(buf[:cnt])
 			}
 
-			cw, err := ge.Pty.Write(buf[:cnt])
+			cw, err := ge.pty.Write(buf[:cnt])
 			if err != nil {
-				log.Printf("GoEmbed.handleConnection - ge.Pty.Write(buf[:%d]) write %d bytes, error : %v", cnt, cw, err)
+				log.Printf("GoEmbed.handleConnection - ge.pty.Write(buf[:%d]) write %d bytes, error : %v", cnt, cw, err)
 				continue
 			}
 		}
@@ -74,9 +76,9 @@ func (ge *GoEmbed) startTransfer() {
 	go func() {
 		buf := make([]byte, 1024)
 		for {
-			cnt, err := ge.Pty.Read(buf)
+			cnt, err := ge.pty.Read(buf)
 			if err != nil {
-				log.Println("GoEmbed.handleConnection - ge.Pty.Read(buf) failed : %v", err)
+				log.Println("GoEmbed.handleConnection - ge.pty.Read(buf) failed : %v", err)
 				continue
 			}
 
@@ -110,7 +112,9 @@ func (ge *GoEmbed) startTransfer() {
 }
 
 // Serve :
-func (ge *GoEmbed) Serve(servAddr, logPath string) (err error) {
+func (ge *GoEmbed) Serve(servAddr, logPath, mod string, exports map[string]interface{}) (err error) {
+	ge.mod = mod
+	ge.exports = exports
 	if logPath != "" {
 		logF, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if nil != err {
@@ -121,22 +125,22 @@ func (ge *GoEmbed) Serve(servAddr, logPath string) (err error) {
 	}
 
 	// 准备pty设备
-	ge.Pty, ge.Tty, err = pty.Open()
+	ge.pty, ge.tty, err = ptymod.Open()
 	if nil != err {
 		log.Printf("GoEmbed.Serve - failed : %v", err)
 		return err
 	}
 
-	if _, err = sshterm.MakeRaw(int(ge.Tty.Fd())); nil != err {
-		log.Printf("GoEmbed.Serve - sshterm.MakeRaw for ge.Tty failed : %v", err)
+	if _, err = sshterm.MakeRaw(int(ge.tty.Fd())); nil != err {
+		log.Printf("GoEmbed.Serve - sshterm.MakeRaw for ge.tty failed : %v", err)
 	}
-	if _, err = sshterm.MakeRaw(int(ge.Pty.Fd())); nil != err {
-		log.Printf("GoEmbed.Serve - sshterm.MakeRaw for ge.Tty failed : %v", err)
+	if _, err = sshterm.MakeRaw(int(ge.pty.Fd())); nil != err {
+		log.Printf("GoEmbed.Serve - sshterm.MakeRaw for ge.pty failed : %v", err)
 	}
 	// 重定向本进程的输入输出
-	syscall.Dup2(int(ge.Tty.Fd()), 0)
-	syscall.Dup2(int(ge.Tty.Fd()), 1)
-	syscall.Dup2(int(ge.Tty.Fd()), 2)
+	syscall.Dup2(int(ge.tty.Fd()), 0)
+	syscall.Dup2(int(ge.tty.Fd()), 1)
+	syscall.Dup2(int(ge.tty.Fd()), 2)
 
 	ge.startTransfer()
 
@@ -163,15 +167,18 @@ func (ge *GoEmbed) Serve(servAddr, logPath string) (err error) {
 			ge.lock.Unlock()
 		}
 	}(ln)
-	go qShell()
+	go ge.qShell()
 	return nil
 }
 
 // QShell :
-func qShell() {
+func (ge *GoEmbed) qShell() {
 	qall.InitSafe(false)
 	qlang.Import("", qipt.Exports)
 	qlang.Import("qlang", qlang.Exports)
+	if ge.exports != nil {
+		qlang.Import(ge.mod, ge.exports)
+	}
 	qlang.SetDumpCode("")
 
 	lang := qlang.New()
