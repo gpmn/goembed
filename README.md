@@ -1,0 +1,3 @@
+集成七牛存储的qshell到go程序中。
+goembed作为进程的一部分启动，接管进程的stdio。
+goinject作为单独的进程启动，attach到goembed上。
