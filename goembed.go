@@ -148,7 +148,7 @@ func (ge *GoEmbed) Serve(servAddr, logPath, mod string, exports map[string]inter
 	log.Printf("will serve at address %s", servAddr)
 	ln, err := net.Listen("tcp", servAddr)
 	if err != nil {
-		log.Println("GoEmbed.Serve - tls.Listen @%s failed : %v", servAddr, err)
+		log.Printf("GoEmbed.Serve - tls.Listen @%s failed : %v", servAddr, err)
 		return err
 	}
 	go func(ln net.Listener) {
